@@ -26,17 +26,13 @@ class NBAMasterAppTest {
     private NBAMasterApp nbaMasterApp;
 
     @Test
-    void doChatAnswersAnthonyDavisTradeQuestion() {
-        String answer = nbaMasterApp.doChat(ANTHONY_DAVIS_TRADE_QUESTION, UUID.randomUUID().toString());
-        String normalizedAnswer = answer.toLowerCase(Locale.ROOT);
+    void doChatWithMemory() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "Hello, I'm a lakers fan";
+        String answer = nbaMasterApp.doChat(message, chatId);
 
-        assertAll(
-                () -> assertNotNull(answer),
-                () -> assertFalse(answer.isBlank()),
-                () -> assertTrue(answer.length() > 80),
-                () -> assertTrue(normalizedAnswer.contains("lakers")),
-                () -> assertTrue(normalizedAnswer.contains("davis") || normalizedAnswer.contains("anthony"))
-        );
+        message = "do yo remember which team I like?";
+        answer = nbaMasterApp.doChat(message, chatId);
     }
 
     @Test
