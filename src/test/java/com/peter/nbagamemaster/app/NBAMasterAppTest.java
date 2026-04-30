@@ -1,33 +1,69 @@
 package com.peter.nbagamemaster.app;
 
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.springframework.boot.test.context.SpringBootTest;
 
-import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SpringBootTest
+@Tag("e2e")
+@EnabledIfSystemProperty(named = "nba.e2e.enabled", matches = "true")
 class NBAMasterAppTest {
 
+    private static final String ANTHONY_DAVIS_TRADE_QUESTION =
+            "Analyze the Anthony Davis trade for the Lakers.";
+
+    @Resource
+    private NBAMasterApp nbaMasterApp;
+
     @Test
-    void doChatReturnsModelContent() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class))).thenReturn(new ChatResponse(
-                List.of(new Generation(new AssistantMessage("Mocked answer")))
-        ));
+    void doChatAnswersAnthonyDavisTradeQuestion() {
+        String answer = nbaMasterApp.doChat(ANTHONY_DAVIS_TRADE_QUESTION, UUID.randomUUID().toString());
+        String normalizedAnswer = answer.toLowerCase(Locale.ROOT);
 
-        NBAMasterApp nbaMasterApp = new NBAMasterApp(chatModel);
+        assertAll(
+                () -> assertNotNull(answer),
+                () -> assertFalse(answer.isBlank()),
+                () -> assertTrue(answer.length() > 80),
+                () -> assertTrue(normalizedAnswer.contains("lakers")),
+                () -> assertTrue(normalizedAnswer.contains("davis") || normalizedAnswer.contains("anthony"))
+        );
+    }
 
-        String answer = nbaMasterApp.doChat("Who wins tonight?", "session-1");
+    @Test
+    void doChatWithTeamTradeAnalysisReturnsAnthonyDavisTradeEvaluation() {
+        NBAMasterApp.TeamTradeEvaluation evaluation = nbaMasterApp.doChatWithTeamTradeAnalysis(
+                ANTHONY_DAVIS_TRADE_QUESTION,
+                UUID.randomUUID().toString()
+        );
 
-        assertEquals("Mocked answer", answer);
+        assertAll(
+                () -> assertNotNull(evaluation),
+                () -> assertNotNull(evaluation.teamName()),
+                () -> assertTrue(evaluation.teamName().toLowerCase(Locale.ROOT).contains("laker")),
+                () -> assertNotNull(evaluation.assetsReceived()),
+                () -> assertFalse(evaluation.assetsReceived().isEmpty()),
+                () -> assertTrue(evaluation.assetsReceived().stream()
+                        .anyMatch(asset -> asset.toLowerCase(Locale.ROOT).contains("anthony")
+                                || asset.toLowerCase(Locale.ROOT).contains("davis"))),
+                () -> assertNotNull(evaluation.shortTermImpact()),
+                () -> assertFalse(evaluation.shortTermImpact().isBlank()),
+                () -> assertNotNull(evaluation.longTermImpact()),
+                () -> assertFalse(evaluation.longTermImpact().isBlank()),
+                () -> assertNotNull(evaluation.mainRisks()),
+                () -> assertFalse(evaluation.mainRisks().isEmpty()),
+                () -> assertNotNull(evaluation.teamGrade()),
+                () -> assertFalse(evaluation.teamGrade().isBlank())
+        );
     }
 
 }

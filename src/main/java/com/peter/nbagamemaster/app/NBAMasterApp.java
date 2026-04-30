@@ -10,6 +10,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 @Slf4j
 public class NBAMasterApp {
@@ -32,6 +34,12 @@ public class NBAMasterApp {
                 .build();
     }
 
+    /**
+     * Basic conversation
+     * @param message
+     * @param sessionId
+     * @return
+     */
     public String doChat(String message, String sessionId){
         ChatResponse chatResponse = this.chatClient
                 .prompt()
@@ -43,5 +51,50 @@ public class NBAMasterApp {
         String content =  chatResponse.getResult().getOutput().getText();
         log.info("content: {}", content);
         return content;
+    }
+
+    public record TeamTradeEvaluation(
+            String teamName,
+            List<String> assetsReceived,
+            List<String> assetsSent,
+            String shortTermImpact,
+            String longTermImpact,
+            String basketballFit,
+            String capOrContractImpact,
+            List<String> mainRisks,
+            String teamGrade
+    ) {}
+
+    private final static String SYSTEM_PROMPT_TRADE_ANALYSIS = "When the user asks for a trade evaluation from one team’s perspective, return an evaluation tailored to this Java record:\n" +
+            "\n" +
+            "TeamTradeEvaluation(\n" +
+            "  teamName,\n" +
+            "  assetsReceived,\n" +
+            "  assetsSent,\n" +
+            "  shortTermImpact,\n" +
+            "  longTermImpact,\n" +
+            "  basketballFit,\n" +
+            "  capOrContractImpact,\n" +
+            "  mainRisks,\n" +
+            "  teamGrade\n" +
+            ")";
+
+
+    /**
+     * Structured output
+     * @param message
+     * @param sessionId
+     * @return
+     */
+    public TeamTradeEvaluation doChatWithTeamTradeAnalysis(String message, String sessionId){
+        TeamTradeEvaluation tradeEvaluation = this.chatClient
+                .prompt()
+                .system(SYSTEM_PROMPT + SYSTEM_PROMPT_TRADE_ANALYSIS)
+                .user(message)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
+                .call()
+                .entity(TeamTradeEvaluation.class);
+        log.info("content: {}", tradeEvaluation);
+        return tradeEvaluation;
     }
 }
