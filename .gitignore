@@ -21,6 +21,7 @@ target/
 
 .env
 tmp
+.junie
 
 ### NetBeans ###
 /nbproject/private/
