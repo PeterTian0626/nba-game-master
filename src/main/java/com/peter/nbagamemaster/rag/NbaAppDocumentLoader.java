@@ -27,7 +27,7 @@ public class NbaAppDocumentLoader {
         List<Document> documents = new ArrayList<>();
 
         try {
-            Resource[] resources = resourcePatternResolver.getResources("classpath:document/*.md");
+            Resource[] resources = resourcePatternResolver.getResources("classpath:documents/*.md");
             for (Resource resource : resources) {
                 String fileName = resource.getFilename();
                 MarkdownDocumentReaderConfig config = MarkdownDocumentReaderConfig.builder()

@@ -1,7 +1,9 @@
 package com.peter.nbagamemaster.app;
 
+import com.peter.nbagamemaster.advisor.MyLoggerAdvisor;
 import com.peter.nbagamemaster.advisor.ReReadingAdvisor;
 import com.peter.nbagamemaster.chatMemory.FileBasedChatMemoryRepository;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -10,6 +12,8 @@ import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -101,5 +105,28 @@ public class NBAMasterApp {
                 .entity(TeamTradeEvaluation.class);
         log.info("content: {}", tradeEvaluation);
         return tradeEvaluation;
+    }
+
+    @Resource
+    private VectorStore nbaAppVectorStore;
+
+    /**
+     * Chat with RAG
+     * @param message
+     * @param sessionId
+     * @return
+     */
+    public String doChatWithRag(String message, String sessionId){
+        ChatResponse chatResponse =  chatClient
+                .prompt()
+                .user(message)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
+                .advisors(new MyLoggerAdvisor())
+                .advisors(QuestionAnswerAdvisor.builder(nbaAppVectorStore).build())
+                .call()
+                .chatResponse();
+        String content =  chatResponse.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
     }
 }

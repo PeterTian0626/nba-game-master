@@ -28,7 +28,7 @@
     </scm>
     <properties>
         <java.version>17</java.version>
-        <spring-ai.version>1.1.4</spring-ai.version>
+        <spring-ai.version>1.1.5</spring-ai.version>
     </properties>
 
     <dependencyManagement>
@@ -69,11 +69,11 @@
             <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
         <!-- LangChain4j adapter for OpenAI integrations and LLM workflows in Java. -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.13.1</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>dev.langchain4j</groupId>-->
+<!--            <artifactId>langchain4j-open-ai</artifactId>-->
+<!--            <version>1.13.1</version>-->
+<!--        </dependency>-->
         <!-- High-performance Kryo serializer for compact object serialization. -->
         <dependency>
             <groupId>com.esotericsoftware</groupId>
@@ -96,6 +96,16 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-markdown-document-reader</artifactId>
+        </dependency>
+        <!-- Vector store for Spring AI -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store</artifactId>
+        </dependency>
+        <!-- Vector store advisors for Spring AI -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-advisors-vector-store</artifactId>
         </dependency>
     </dependencies>
 

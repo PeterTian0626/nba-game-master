@@ -62,4 +62,12 @@ class NBAMasterAppTest {
         );
     }
 
+    @Test
+    void doChatWithRag() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "Why do we see the Lakers trade for Russell Westbrook in 2021 as a bad trade?";
+        String answer = nbaMasterApp.doChatWithRag(message, chatId);
+
+        assertNotNull(answer);
+    }
 }
