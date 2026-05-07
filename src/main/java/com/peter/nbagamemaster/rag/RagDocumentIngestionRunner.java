@@ -17,19 +17,23 @@ public class RagDocumentIngestionRunner implements ApplicationRunner {
 
     private final VectorStore vectorStore;
     private final NbaAppDocumentLoader nbaAppDocumentLoader;
+    private final MyKeywordEnricher myKeywordEnricher;
 
     public RagDocumentIngestionRunner(
             VectorStore vectorStore,
-            NbaAppDocumentLoader nbaAppDocumentLoader
+            NbaAppDocumentLoader nbaAppDocumentLoader,
+            MyKeywordEnricher myKeywordEnricher
     ) {
         this.vectorStore = vectorStore;
         this.nbaAppDocumentLoader = nbaAppDocumentLoader;
+        this.myKeywordEnricher = myKeywordEnricher;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         List<Document> documents = nbaAppDocumentLoader.loadMarkdowns();
-        vectorStore.add(documents);
-        log.info("RAG ingestion completed. {} documents added.", documents.size());
+        List<Document> enrichedDocuments = myKeywordEnricher.enrich(documents);
+        vectorStore.add(enrichedDocuments);
+        log.info("RAG ingestion completed. {} documents added.", enrichedDocuments.size());
     }
 }
