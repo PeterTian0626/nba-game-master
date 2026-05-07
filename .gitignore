@@ -22,6 +22,7 @@ target/
 .env
 tmp
 .junie
+src/main/resources/application-local.yml
 
 ### NetBeans ###
 /nbproject/private/
