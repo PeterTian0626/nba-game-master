@@ -3,6 +3,7 @@ package com.peter.nbagamemaster.app;
 import com.peter.nbagamemaster.advisor.MyLoggerAdvisor;
 import com.peter.nbagamemaster.advisor.ReReadingAdvisor;
 import com.peter.nbagamemaster.chatMemory.FileBasedChatMemoryRepository;
+import com.peter.nbagamemaster.rag.QueryRewriter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -13,7 +14,9 @@ import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,18 +25,20 @@ import java.util.List;
 @Slf4j
 public class NBAMasterApp {
     private final ChatClient chatClient;
+    private final QueryRewriter queryRewriter;
 
     private static final String SYSTEM_PROMPT = "You are an expert NBA analysis agent.\n" +
             "\n" +
             "Your job is to analyze NBA games, players, teams, trades, signings, and historical series with clear basketball reasoning, evidence-based judgment, and appropriate uncertainty.\n" +
             "Default style: clear, direct, analytical, basketball-literate, and concise.";
-    public NBAMasterApp(ChatModel openAIChatModel){
+    public NBAMasterApp(ChatModel openAIChatModel, QueryRewriter queryRewriter){
         String fileDir = System.getProperty("user.dir") + "/tmp/chat-memory";
         ChatMemoryRepository chatMemoryRepository = new FileBasedChatMemoryRepository(fileDir);
         ChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .chatMemoryRepository(chatMemoryRepository)
                 .maxMessages(10)
                 .build();
+        this.queryRewriter = queryRewriter;
         chatClient = ChatClient.builder(openAIChatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(
@@ -117,12 +122,20 @@ public class NBAMasterApp {
      * @return
      */
     public String doChatWithRag(String message, String sessionId){
+        String rewrittenMessage = this.queryRewriter.rewriteAndSave(sessionId, message);
+
         ChatResponse chatResponse =  chatClient
                 .prompt()
                 .user(message)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
                 .advisors(new MyLoggerAdvisor())
-                .advisors(QuestionAnswerAdvisor.builder(nbaAppVectorStore).build())
+                .advisors(RetrievalAugmentationAdvisor.builder()
+                        .queryTransformers(query -> query.mutate().text(rewrittenMessage).build())
+                        .documentRetriever(VectorStoreDocumentRetriever.builder()
+                                .vectorStore(nbaAppVectorStore)
+                                .build())
+                        .taskExecutor(new SyncTaskExecutor())
+                        .build())
                 .call()
                 .chatResponse();
         String content =  chatResponse.getResult().getOutput().getText();
