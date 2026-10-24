@@ -1,5 +1,8 @@
 # RAG query rewriting
 
+Return to [Readme.md](../Readme.md). See [Agent.md](../Agent.md#rag-request-workflow)
+for the complete answering workflow and [RAG](rag.md) for ingestion and retrieval.
+
 The application is a Spring Boot 3 / Java 17 service using Spring AI 1.1.5.
 `NBAMasterApp` provides basic chat, structured trade analysis, and RAG chat.
 Its default advisors reread the question and maintain a ten-message window

@@ -1,0 +1,19 @@
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4.1-nano-2025-04-14
+      embedding:
+        options:
+          model: text-embedding-3-small
+
+app:
+  vector-store:
+    type: simple
+  rag:
+    ingestion:
+      enabled: false

@@ -1,0 +1,22 @@
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4.1-nano-2025-04-14
+      embedding:
+        options:
+          model: text-embedding-3-small
+  datasource:
+    url: ${NBA_DB_URL}
+    username: ${NBA_DB_USERNAME}
+    password: ${NBA_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+app:
+  vector-store:
+    type: pgvector
+  rag:
+    ingestion:
+      enabled: false
