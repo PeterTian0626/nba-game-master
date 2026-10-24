@@ -1,12 +1,12 @@
 # Agent behavior and workflows
 
-Return to [Readme.md](Readme.md). This document describes the application's NBA assistant and the workflow for maintaining it. It is ordinary project documentation, not an `AGENTS.md` instruction file.
+Return to [Readme.md](Readme.md). This document describes the application's NBA assistant and the workflow for maintaining it.
 
 ## What the NBA agent does
 
 `NBAMasterApp` uses a system prompt asking for clear, concise, evidence-based NBA reasoning about games, players, teams, trades, signings, and historical series, with appropriate uncertainty. It is a synchronous chat/RAG component. There is no planner, external tool registry, autonomous execution loop, web search, or live NBA statistics integration.
 
-The application uses a Spring AI `ChatClient` backed by an OpenAI API `ChatModel`. The separate direct SDK demo is not the application's orchestration layer. [Configuration](docs/configuration.md#models-and-effective-configuration) explains how to select the model explicitly rather than relying on local YAML or library defaults.
+The application uses a Spring AI `ChatClient` backed by an OpenAI API `ChatModel`. The separate direct SDK demo is not the application's orchestration layer. [Configuration](docs/configuration.md#models-and-effective-configuration) explains how to select the model explicitly through the checked-in examples rather than relying on library defaults.
 
 ## Calling the agent
 
@@ -39,7 +39,7 @@ The answer client's default advisors include `ReReadingAdvisor` and `MessageChat
 
 The window is ten messages, not ten user/assistant turns; system-message handling is managed by Spring AI. Do not assume the persisted text is the raw user input: advisors modify prompts along the chain. Advisors run according to their Spring AI order values, not solely the order of `.advisors(...)` calls; both custom advisors default to order 0.
 
-`FileBasedChatMemoryRepository` stores a replaced `ArrayList<Message>` in one Kryo file per conversation. The filename is the unpadded URL-safe Base64 encoding of the UTF-8 ID plus `.kryo`; the directory is fixed in `NBAMasterApp` to `${user.dir}/tmp/chat-memory`. Missing conversations return an empty list; writes replace existing contents. Repository instances can reload files written by prior instances.
+`FileBasedChatMemoryRepository` stores a replaced `ArrayList<Message>` in one Kryo file per conversation. The filename is the unpadded URL-safe Base64 encoding of the UTF-8 ID plus `.kryo`; `NBAMasterApp` chooses the persistence directory relative to the process working directory. Missing conversations return an empty list; writes replace existing contents. Repository instances can reload files written by prior instances.
 
 There is no scheduled deletion, TTL, file locking, versioned serialization format, or atomic write. A `ThreadLocal<Kryo>` avoids sharing a serializer across threads, but does not serialize concurrent writes to a conversation. Retain the directory to preserve chats across restarts, and coordinate access before using concurrent requests or multiple processes against the same files.
 
@@ -108,4 +108,4 @@ Basic and structured chat perform an answer-model call per request. A RAG reques
 3. When changing corpus files, follow [RAG authoring and ingestion](docs/rag.md#changing-the-corpus). Human Markdown examples in code blocks do not reach retrieval because the loader excludes code blocks.
 4. When changing embeddings, check the 1536-dimension pgvector builder and rebuild affected vectors. Matching dimensions alone does not make embeddings from different models comparable.
 5. Run the relevant [isolated tests](docs/testing.md#isolated-unit-tests). Run full-context/live tests only with deliberate model/database configuration; their startup can call services or write vectors.
-6. Update the linked documents and perform the [second-pass documentation checks](docs/testing.md#second-pass-documentation-review). Do not use ignored local files or `dep_tree.txt` as portable defaults.
+6. Update the linked documents and perform the [second-pass documentation checks](docs/testing.md#second-pass-documentation-review). Base repository references on tracked files, and use the POM rather than `dep_tree.txt` for dependency versions.

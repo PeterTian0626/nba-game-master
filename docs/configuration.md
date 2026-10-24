@@ -4,11 +4,11 @@ Return to [Readme.md](../Readme.md). Source wiring is described in [Architecture
 
 ## Configuration sources
 
-The repository ignores `src/main/resources/application.yml`, `application-local.yml`, and `.env`. They may exist on a developer's machine but are not available in a fresh clone. The inspected local YAML activates `local`, selects simple vectors, and enables optional ingestion. Those are local choices, not tracked application defaults.
+The checked-in [simple](examples/application-simple.yml) and [pgvector](examples/application-pgvector.yml) examples define the documented setup and contain environment placeholders only. Set the required environment variables before starting the application.
 
-The checked-in [simple](examples/application-simple.yml) and [pgvector](examples/application-pgvector.yml) examples contain environment placeholders only. Load one using `--spring.config.additional-location=file:...` and select `--spring.profiles.active=docs` to avoid automatically activating the ignored `local` profile. The `docs` profile has no custom Java behavior; it is simply an explicit profile choice. Base `application.yml`, if present, still participates; the additional example overrides the settings it declares. Command-line arguments override file settings.
+Load one using `--spring.config.additional-location=file:...` and select `--spring.profiles.active=docs`. The `docs` profile has no custom Java behavior; it is simply an explicit profile choice. Other Spring configuration sources can still participate; the additional example overrides file settings it declares, while command-line arguments take precedence.
 
-Spring Boot does not automatically read this repository's `.env`. The SDK demo's `TestApiKey` helper does; this does not configure the Spring application.
+The Spring application and standalone SDK demo resolve credentials separately. For the documented Spring setup, supply `OPENAI_API_KEY` through the environment.
 
 ## Models and effective configuration
 
@@ -22,9 +22,9 @@ Spring Boot does not automatically read this repository's `.env`. The SDK demo's
 | Spring AI 1.1.5 chat fallback if unset | `gpt-4o-mini` |
 | Spring AI 1.1.5 embedding fallback if unset | `text-embedding-ada-002` |
 
-The fallback names were checked against the locally cached Spring AI 1.1.5 sources (`OpenAiChatProperties` / `OpenAiEmbeddingProperties`); they are not a recommendation to rely on implicit defaults. Both answer generation and rewriting use the same configured chat model. Keyword enrichment also uses the injected chat model.
+The fallback names come from Spring AI 1.1.5 (`OpenAiChatProperties` / `OpenAiEmbeddingProperties`); they are not a recommendation to rely on implicit defaults. Both answer generation and rewriting use the same configured chat model. Keyword enrichment also uses the injected chat model.
 
-The inspected ignored YAML places the intended chat model at `spring.chat.options.model`. Spring AI binds `spring.ai.openai.chat.options.model`, so that local setting does not select the model. The SDK demo does explicitly set `gpt-4.1-nano-2025-04-14` independently of Spring configuration.
+Use `spring.ai.openai.chat.options.model` to select the application's chat model. The SDK demo explicitly sets `gpt-4.1-nano-2025-04-14` independently of Spring configuration.
 
 The pinned chat snapshot is documented in [official OpenAI model documentation](https://developers.openai.com/api/docs/models/gpt-4.1-nano). OpenAI documents `text-embedding-3-small`'s default 1536-dimensional output in its [embedding guide](https://developers.openai.com/api/docs/guides/embeddings). These example selections make configuration explicit; they do not establish that an existing database was built with that embedding model. Before using an existing vector table, determine its original model and dimensions. Re-embed the corpus into a separately planned/rebuilt table when changing embedding models, even if both have 1536 dimensions.
 
@@ -49,7 +49,7 @@ Use `./mvnw` on Unix or an installed `mvn` as a wrapper alternative. The example
 
 ## PostgreSQL and Supabase
 
-The application's database integration is standard PostgreSQL JDBC plus Spring AI `PgVectorStore`. Supabase is a hosted PostgreSQL provider referenced by the inspected local connection configuration. There is no Supabase Java SDK, REST client, Auth, Storage, Edge Function, or Supabase-specific vector RPC in the code.
+The application's database integration is standard PostgreSQL JDBC plus Spring AI `PgVectorStore`. Supabase can supply the hosted PostgreSQL database for this setup. There is no Supabase Java SDK, REST client, Auth, Storage, Edge Function, or Supabase-specific vector RPC in the code.
 
 1. Provision an appropriate PostgreSQL database with pgvector support. For Supabase, use its [database connection guidance](https://supabase.com/docs/guides/database/connecting-to-postgres) to choose an endpoint suitable for your network and server process, and its [pgvector extension guide](https://supabase.com/docs/guides/database/extensions/pgvector) for extension setup.
 2. Set `NBA_DB_URL` to a PostgreSQL JDBC URL, `NBA_DB_USERNAME` to the database role, and `NBA_DB_PASSWORD` to its database password. The URL must start with `jdbc:postgresql://`, not a plain `postgresql://` URI. Follow your provider's TLS/certificate requirements; include the appropriate `sslmode` and certificate settings for that connection. Keep credentials outside tracked files.
@@ -98,7 +98,7 @@ No configurable application property currently controls the memory directory/win
 
 Run demo main classes from the IDE with the project dependencies on the classpath:
 
-- `SDKAiInvoke`: directly uses the OpenAI SDK Responses API. `TestApiKey` checks `OPENAI_API_KEY`, then JVM property `openai.apiKey`, then `OPENAI_API_KEY` in the working directory's `.env`. This bypasses Spring, memory, retrieval, and ingestion.
+- `SDKAiInvoke`: directly uses the OpenAI SDK Responses API. Supply `OPENAI_API_KEY` through the environment or JVM property `openai.apiKey`; `TestApiKey` resolves the demo's credentials. This bypasses Spring, memory, retrieval, and ingestion.
 - `SpringAiInvoke`: starts the full Spring context with web mode disabled, then uses a bare `ChatClient.Builder`. Supply the same Spring configuration arguments as for the application; store initialization and optional ingestion still occur. It does not call `NBAMasterApp` or install its NBA prompt/advisors.
 - `SpringAiInvoke2` and `LangChain4jInvoke`: commented-out examples, not runnable application flows.
 
@@ -109,11 +109,11 @@ Run demo main classes from the IDE with the project dependencies on the classpat
 | Windows wrapper: `Cannot index into a null array` / `Cannot start maven from wrapper` | The current `mvnw.cmd` indexes `(Get-Item $MAVEN_M2_PATH).Target[0]`; some Windows PowerShell directory objects expose a null target. Use an installed Maven (`mvn`) or IDE Maven runner. This docs change does not repair the wrapper. |
 | Offline build cannot resolve Spring Boot 3.5.13 parent | The required POM is not cached for the selected Maven repository. Resolve dependencies with network access before using `-o`; `dep_tree.txt` cannot supply artifacts. |
 | Startup says a JDBC URL/driver is missing in simple mode | Use the simple example's explicit data source auto-configuration exclusion, or configure a real data source intentionally. |
-| OpenAI key missing despite `.env` existing | Export/set the environment value used by `${OPENAI_API_KEY}`; only the SDK helper reads `.env`. |
-| The wrong chat model is used | Verify `spring.ai.openai.chat.options.model`, not `spring.chat.options.model`; check higher-precedence arguments/environment settings. |
+| OpenAI key missing | Export/set the environment value used by `${OPENAI_API_KEY}`; the SDK demo's credential helper does not configure the Spring application. |
+| The wrong chat model is used | Verify `spring.ai.openai.chat.options.model`; check higher-precedence arguments/environment settings. |
 | PostgreSQL extension/table/index permission failure | Check role privileges, installed extensions and search path, and managed-database initialization policy. Schema initialization is always enabled in the current factory. |
 | Vector dimension mismatch or poor results after a model change | Verify both embedding model identity and 1536-dimensional output; plan a corpus reindex instead of mixing models. |
 | Empty pgvector results | Confirm `app.vector-store.type=pgvector`, connection/table, and whether ingestion has ever run against that database. |
 | Duplicate corpus results | Check repeated enabled ingestion and simple mode's independent initial load; there are no stable ingestion IDs/deduplication. |
-| Chat history disappears after restart | Check working directory and persistence of `tmp/chat-memory`; rewrite cache and simple vectors are independently transient. |
+| Chat history disappears after restart | Check the process working directory and conversation persistence configured in `NBAMasterApp`; rewrite cache and simple vectors are independently transient. |
 | `/health` succeeds but chat fails | The endpoint returns a constant; it does not check the model, embeddings, retrieval contents, or subsequent database connectivity. |

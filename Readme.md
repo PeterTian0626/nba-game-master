@@ -27,11 +27,11 @@ Versions below come from [pom.xml](pom.xml), not the historical `dep_tree.txt`.
 | Model provider | OpenAI API; examples explicitly select `gpt-4.1-nano-2025-04-14` |
 | Embeddings | OpenAI; documentation examples explicitly select `text-embedding-3-small` (1536 dimensions) |
 | Retrieval storage | In-process `SimpleVectorStore` by default, or PostgreSQL with pgvector |
-| Hosted database | Local ignored configuration references Supabase PostgreSQL; the code connects through JDBC |
-| Conversation storage | Kryo 5.6.2 files under `tmp/chat-memory`, ten-message window |
+| Hosted database | Supabase PostgreSQL can provide the pgvector backend through JDBC |
+| Conversation storage | Kryo 5.6.2 filesystem persistence, ten-message window |
 | Other libraries | OpenAI Java SDK 4.0.0 for a standalone demo, springdoc 2.8.6, Lombok, JUnit 5/Mockito |
 
-The application uses OpenAI's API, so a ChatGPT subscription alone does not configure it. The intended chat model and effective Spring AI model can differ if local configuration uses the wrong property prefix; see [model configuration](docs/configuration.md#models-and-effective-configuration).
+The application uses OpenAI's API, so a ChatGPT subscription alone does not configure it. See [model configuration](docs/configuration.md#models-and-effective-configuration) for the properties that select the API models.
 
 ## Quick start: in-memory retrieval
 
@@ -59,10 +59,4 @@ For persistent retrieval, follow the [PostgreSQL/Supabase setup](docs/configurat
 
 Start with the [isolated unit test command](docs/testing.md#isolated-unit-tests) when changing application logic. Plain `mvn test` also discovers Spring context tests that may call OpenAI and a database during startup. The tagged chat end-to-end tests require `-Dnba.e2e.enabled=true`.
 
-Build a jar with `mvn -DskipTests package` (or the Maven wrapper) and run it from the repository root with the same configuration arguments:
-
-```powershell
-java -jar target/NBA-game-master-0.0.1-SNAPSHOT.jar --spring.profiles.active=docs --spring.config.additional-location=file:docs/examples/application-simple.yml
-```
-
-`-DskipTests` skips test execution, not test compilation. No Docker setup, schema migrations, or CI workflow is checked in. Local YAML, `.env`, generated build output, IDE files, and runtime conversation files are ignored. Never copy local credentials into the documentation or commit them.
+Build a jar with `mvn -DskipTests package` (or the Maven wrapper). `-DskipTests` skips test execution, not test compilation. No Docker setup, schema migrations, or CI workflow is checked in. Keep credentials in environment variables and never commit them.

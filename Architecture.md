@@ -14,7 +14,7 @@ flowchart TD
     HTTP[HTTP client] --> Health[HealthController: GET /health]
     App --> Answer[Spring AI answer ChatClient]
     Answer <--> Memory[MessageWindowChatMemory]
-    Memory <--> Disk[tmp/chat-memory: Kryo files]
+    Memory <--> Disk[Filesystem conversation persistence]
     App --> Rewrite[QueryRewriter: separate ChatClient]
     Rewrite --> OpenAI[OpenAI chat API]
     Answer --> OpenAI
@@ -61,11 +61,6 @@ The pgvector factory returns the `VectorStore` interface, but the concrete insta
 | `docs/testing.md` | Test classification, commands, limitations, and documentation verification |
 | `docs/examples/application-simple.yml` | Credential-free example that selects in-memory vectors and excludes JDBC auto-configuration |
 | `docs/examples/application-pgvector.yml` | Credential-free JDBC/pgvector example with explicit OpenAI models |
-| `src/main/resources/application.yml`, `application-local.yml` | Ignored machine-specific configuration, if present; not supplied by a fresh clone |
-| `src/main/resources/static/`, `templates/` | Currently empty local resource directories; no frontend files are tracked |
-| `.env` | Ignored credentials file; read explicitly by the standalone SDK demo helper, not automatically by Spring Boot |
-| `target/`, `tmp/` | Ignored generated build artifacts and runtime data; conversation files live under `tmp/chat-memory` |
-| `.idea/`, `.junie/`, `HELP.md` | Ignored local IDE/assistant material and generated starter help, if present; not required runtime inputs |
 
 ## Production Java files
 
@@ -87,7 +82,7 @@ All paths below are relative to `src/main/java/com/peter/nbagamemaster/`.
 | `rag/MyKeywordEnricher.java` | Uses the injected chat model and Spring AI `KeywordMetadataEnricher` to request five keywords per document |
 | `rag/QueryRewriter.java` | NBA search-query transformer; length gates, bounded synchronized LRU maps for successful rewrites/latest session searches, graceful model-error fallback |
 | `demo/invoke/SDKAiInvoke.java` | Standalone OpenAI Java SDK Responses API example; explicitly selects `gpt-4.1-nano-2025-04-14`, prints the first text output |
-| `demo/invoke/TestApiKey.java` | SDK demo credential helper: environment, JVM property, then a simple `.env` reader |
+| `demo/invoke/TestApiKey.java` | Resolves the standalone SDK demo's API key; supports environment and JVM property configuration |
 | `demo/invoke/SpringAiInvoke.java` | Starts the complete application context without a web server, obtains a bare `ChatClient.Builder`, and calls a sample prompt; startup store/ingestion work still applies |
 | `demo/invoke/SpringAiInvoke2.java` | Commented-out `CommandLineRunner` example; no active component/class |
 | `demo/invoke/LangChain4jInvoke.java` | Entirely commented-out alternative integration; LangChain4j dependency is also commented out in the POM |
@@ -120,7 +115,7 @@ See [testing](docs/testing.md) before choosing a command: class names alone do n
 
 | State | Location/lifetime | Current caveats |
 | --- | --- | --- |
-| Conversation messages | Working directory's `tmp/chat-memory/*.kryo`; survives restart if retained | Local files, no TTL, no file locking/atomic replacement, no application-level encryption or cross-instance coordination |
+| Conversation messages | Filesystem persistence configured in `NBAMasterApp`; survives restart if retained | Local files, no TTL, no file locking/atomic replacement, no application-level encryption or cross-instance coordination |
 | Rewrite cache/latest session searches | Process memory; evicted by capacity or restart | Exact input keys, shared rewrite cache across sessions, no follow-up resolution using history |
 | Simple document vectors | Process memory | Re-embedded on every startup; no save/load is called |
 | pgvector document vectors | PostgreSQL `public.vector_store` | No migration tooling, corpus versioning, deduplication, or stale-document cleanup |
