@@ -24,9 +24,11 @@ flowchart TD
     Store --> Simple[SimpleVectorStore: process memory]
     Store --> PG[PgVectorStore: PostgreSQL / Supabase]
     Corpus[Classpath documents/*.md] --> Loader[NbaAppDocumentLoader]
-    Loader --> Simple
     Loader --> Ingest[Optional RagDocumentIngestionRunner]
-    Ingest --> Enricher[MyKeywordEnricher: chat model]
+    Ingest --> Registry[PGVector: source hash and pipeline registry]
+    Registry --> Split[Changed sources: MyTokenTextSplitter]
+    Ingest --> Split
+    Split --> Enricher[MyKeywordEnricher: chat model]
     Enricher --> Store
 ```
 
@@ -37,11 +39,11 @@ flowchart TD
 1. `NbaGameMasterApplication` starts Spring Boot and scans the application package.
 2. Spring AI auto-configures OpenAI chat/embedding models from `spring.ai.openai.*`. Spring Boot's JDBC starter also triggers data source auto-configuration unless explicitly excluded.
 3. Exactly one vector-store factory should match `app.vector-store.type`:
-   - Missing or `simple`: bean `vectorStore`, which immediately loads and embeds Markdown.
+   - Missing or `simple`: bean `vectorStore`, initially empty; ingestion populates it if enabled.
    - `pgvector`: bean `pgVectorVectorStore`, which initializes the database schema through Spring's bean lifecycle; it does not load documents by itself.
    - Any other value: neither factory matches, so required vector-store injection fails.
 4. `NBAMasterApp` constructs its filesystem memory repository and answer client. Its `@Resource` field is named `nbaAppVectorStore`, but neither factory uses that name; injection relies on the single matching `VectorStore` type. Adding multiple stores requires explicit wiring changes.
-5. If `app.rag.ingestion.enabled=true`, `RagDocumentIngestionRunner` loads, enriches, and adds the corpus after context initialization. In simple mode, this happens in addition to the factory's initial load.
+5. If `app.rag.ingestion.enabled=true`, `RagDocumentIngestionRunner` parses, token-splits, enriches, and stores the corpus after context initialization. Simple mode rebuilds once. PGVector checks the persistent registry first and replaces only new/changed files or outdated pipeline versions, committing each source's vectors and registration together.
 
 The pgvector factory returns the `VectorStore` interface, but the concrete instance implements Spring initialization. Its configured schema initialization is performed when managed as a Spring bean. Building a store manually outside Spring does not itself run that lifecycle callback.
 
@@ -58,6 +60,7 @@ The pgvector factory returns the `VectorStore` interface, but the concrete insta
 | `Readme.md`, `Architecture.md`, `Agent.md` | Documentation entry point, structural map, and agent/workflow guide |
 | `docs/configuration.md` | Setup, properties, models, Supabase/JDBC, troubleshooting |
 | `docs/rag.md`, `docs/query-rewriting.md` | Corpus/ingestion/retrieval guide and rewrite internals |
+| `docs/sql/rag_document_ingestion.sql` | Fresh-database registry schema with RLS enabled |
 | `docs/testing.md` | Test classification, commands, limitations, and documentation verification |
 | `docs/examples/application-simple.yml` | Credential-free example that selects in-memory vectors and excludes JDBC auto-configuration |
 | `docs/examples/application-pgvector.yml` | Credential-free JDBC/pgvector example with explicit OpenAI models |
@@ -75,10 +78,13 @@ All paths below are relative to `src/main/java/com/peter/nbagamemaster/`.
 | `advisor/MyLoggerAdvisor.java` | Logs request/response text at INFO; implements synchronous and streaming advisor interfaces, order 0 |
 | `advisor/package-info.java` | Package-wide Spring non-null annotations |
 | `chatMemory/FileBasedChatMemoryRepository.java` | Spring AI `ChatMemoryRepository` implementation with Kryo serialization, URL-safe Base64 conversation filenames, list/read/replace/delete operations |
-| `rag/NbaAppDocumentLoader.java` | Reads `classpath:documents/*.md`, configures Markdown parsing, attaches `filename` metadata, returns Spring AI documents |
-| `rag/NbaAppVectoreStoreConfig.java` | Default/simple store factory; embeds the corpus at bean creation. `Vectore` is the current filename/class spelling |
+| `rag/NbaAppDocumentLoader.java` | Snapshots/hashes `classpath:documents/*.md`, parses selected sources, attaches filename/source key metadata; read errors propagate |
+| `rag/NbaAppVectoreStoreConfig.java` | Default/simple store factory; builds an empty store. `Vectore` is the current filename/class spelling |
 | `rag/PgVectorVectorStoreConfig.java` | Manual JDBC pgvector factory; 1536 dimensions, cosine distance, HNSW index, `public.vector_store`, schema initialization, batch limit 10000 |
-| `rag/RagDocumentIngestionRunner.java` | Conditional startup ingestion: load Markdown, enrich metadata, add to the selected vector store, log document count |
+| `rag/RagDocumentIngestionRunner.java` | Conditional startup ingestion: dispatch persistent ingestion or populate the simple store once |
+| `rag/MyTokenTextSplitter.java` | Default and customized token splitting; ingestion uses the 200-token target configuration |
+| `rag/RagDocumentIngestionRepository.java` | JDBC access to the five-column successful-ingestion registry |
+| `rag/PgVectorDocumentIngestion.java` | Skip matching registrations; split/enrich changed sources; assign stable chunk IDs; transactionally replace vectors and registry |
 | `rag/MyKeywordEnricher.java` | Uses the injected chat model and Spring AI `KeywordMetadataEnricher` to request five keywords per document |
 | `rag/QueryRewriter.java` | NBA search-query transformer; length gates, bounded synchronized LRU maps for successful rewrites/latest session searches, graceful model-error fallback |
 | `demo/invoke/SDKAiInvoke.java` | Standalone OpenAI Java SDK Responses API example; explicitly selects `gpt-4.1-nano-2025-04-14`, prints the first text output |
@@ -106,7 +112,11 @@ All paths below are relative to `src/test/java/com/peter/nbagamemaster/`.
 | `advisor/MyLoggerAdvisorTest.java` | Verifies synchronous logging/returned response; streaming-related test inspects private logging helpers rather than running the full streaming chain |
 | `chatMemory/FileBasedChatMemoryRepositoryTest.java` | Temporary-directory persistence across repository instances and conversation deletion |
 | `rag/QueryRewriterTest.java` | Mocked rewrite, prompt preservation, caching/LRU, fallback/retry, validation, and bounded session storage tests |
-| `rag/NbaAppDocumentLoaderTest.java` | Full-context loader smoke test; only calls `loadMarkdowns()` and currently has no assertions |
+| `rag/NbaAppDocumentLoaderTest.java` | Isolated source discovery, SHA-256, snapshots, parser metadata/segmentation, and read-failure tests |
+| `rag/MyTokenTextSplitterTest.java` | Real tokenizer coverage for chunk size, content preservation, metadata, and empty/short inputs |
+| `rag/PgVectorDocumentIngestionTest.java` | Mocked skip/reindex, stable IDs, transaction boundaries, rollback, and retry tests |
+| `rag/RagDocumentIngestionRepositoryTest.java` | JDBC row mapping and five-column success-upsert contract |
+| `rag/RagDocumentIngestionRunnerTest.java` | Simple split/enrich/store order, empty corpus, and persistent dispatch without duplicate writes |
 | `rag/PgVectorVectorStoreConfigTest.java` | Full-context similarity-search smoke test (`topK=2`); logs results with no assertions and does not force pgvector selection |
 
 See [testing](docs/testing.md) before choosing a command: class names alone do not indicate whether a test is isolated from external services.
@@ -117,7 +127,8 @@ See [testing](docs/testing.md) before choosing a command: class names alone do n
 | --- | --- | --- |
 | Conversation messages | Filesystem persistence configured in `NBAMasterApp`; survives restart if retained | Local files, no TTL, no file locking/atomic replacement, no application-level encryption or cross-instance coordination |
 | Rewrite cache/latest session searches | Process memory; evicted by capacity or restart | Exact input keys, shared rewrite cache across sessions, no follow-up resolution using history |
-| Simple document vectors | Process memory | Re-embedded on every startup; no save/load is called |
-| pgvector document vectors | PostgreSQL `public.vector_store` | No migration tooling, corpus versioning, deduplication, or stale-document cleanup |
+| Simple document vectors | Process memory | Rebuilt on enabled ingestion startups; empty if ingestion disabled; no save/load |
+| pgvector document vectors | PostgreSQL `public.vector_store` | Changed sources replace old chunks; missing local files are retained; no concurrent ingestion coordination |
+| Successful source ingestions | PostgreSQL `public.rag_document_ingestion` | Source SHA-256, explicit pipeline version, chunk count, completion time; schema provisioned separately |
 
 There is no application authentication, authorization, or mapping of conversation IDs to users. Structured output is a Java conversion contract without additional domain validation. Model/retrieval failures beyond rewriting generally propagate. These are implementation boundaries to account for before adding an HTTP chat API or deploying multiple instances.

@@ -1,6 +1,5 @@
 package com.peter.nbagamemaster.rag;
 
-import jakarta.annotation.Resource;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
@@ -14,9 +13,6 @@ import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgIndexT
 
 @Configuration
 public class PgVectorVectorStoreConfig {
-
-    @Resource
-    private NbaAppDocumentLoader nbaAppDocumentLoader;
 
     @Bean
     @ConditionalOnProperty(name = "app.vector-store.type", havingValue = "pgvector")

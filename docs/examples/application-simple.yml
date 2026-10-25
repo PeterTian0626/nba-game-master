@@ -16,4 +16,5 @@ app:
     type: simple
   rag:
     ingestion:
-      enabled: false
+      enabled: true
+      pipeline-version: token-v2

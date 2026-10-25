@@ -95,7 +95,7 @@ With no retrieved documents, Spring AI's default contextual augmenter instructs 
 
 ## Ingestion workflow and model usage
 
-Ingestion is separate from answering: load classpath Markdown, optionally generate five metadata keywords per parsed document, then embed/add documents. It is controlled by `app.rag.ingestion.enabled` and runs on startup, not through an upload endpoint. The simple store independently loads the corpus during construction. See [RAG](docs/rag.md) for how to avoid repeated ingestion.
+Ingestion is separate from answering: scan classpath Markdown, token-split parsed sections, generate five metadata keywords per chunk, then embed/store chunks. It is controlled by `app.rag.ingestion.enabled` and runs on startup, not through an upload endpoint. Simple mode rebuilds once per enabled startup. PGVector skips matching source hashes/pipeline versions and transactionally replaces changed files together with their registry records. See [RAG](docs/rag.md) for the document lifecycle.
 
 Basic and structured chat perform an answer-model call per request. A RAG request may also call the rewrite model on a cache miss and the embedding API for search. Startup can make corpus embedding calls, and enriched ingestion adds keyword-generation calls. Exact request counts depend on parsing, batching, retries, and caches. Disabling rewriting or optional ingestion does not make the whole application offline.
 
@@ -105,7 +105,7 @@ Basic and structured chat perform an answer-model call per request. A RAG reques
 
 1. Read [Architecture.md](Architecture.md) to identify the owner of a behavior. Keep application prompts/orchestration in `NBAMasterApp`, rewrite behavior in `QueryRewriter`, parsing in the document loader, and storage construction in the two configuration classes.
 2. When changing a prompt or output contract, verify both text and structured paths. If changing `TeamTradeEvaluation`, update the record, system instruction, structured tests, corpus output mapping/examples, and this guide together.
-3. When changing corpus files, follow [RAG authoring and ingestion](docs/rag.md#changing-the-corpus). Human Markdown examples in code blocks do not reach retrieval because the loader excludes code blocks.
+3. When changing corpus files, follow [RAG authoring and ingestion](docs/rag.md#changing-the-corpus). Code blocks and blockquotes are separate parsed documents and may be retrieved after splitting.
 4. When changing embeddings, check the 1536-dimension pgvector builder and rebuild affected vectors. Matching dimensions alone does not make embeddings from different models comparable.
 5. Run the relevant [isolated tests](docs/testing.md#isolated-unit-tests). Run full-context/live tests only with deliberate model/database configuration; their startup can call services or write vectors.
 6. Update the linked documents and perform the [second-pass documentation checks](docs/testing.md#second-pass-documentation-review). Base repository references on tracked files, and use the POM rather than `dep_tree.txt` for dependency versions.

@@ -20,3 +20,4 @@ app:
   rag:
     ingestion:
       enabled: false
+      pipeline-version: token-v2

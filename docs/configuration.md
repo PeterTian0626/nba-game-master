@@ -41,11 +41,11 @@ Set `OPENAI_API_KEY` in your shell/IDE environment before launching. Run from th
 Use `./mvnw` on Unix or an installed `mvn` as a wrapper alternative. The example sets:
 
 - `app.vector-store.type=simple`.
-- `app.rag.ingestion.enabled=false` to avoid a second, enriched copy of the corpus.
+- `app.rag.ingestion.enabled=true` to populate the in-memory store through the single startup ingestion path.
 - `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`, because the JDBC starter otherwise attempts to configure a data source even in simple mode.
 - Explicit OpenAI chat and embedding models and a required environment key.
 
-`SimpleVectorStore` still loads/embeds documents at bean creation. Expect startup to require network/API access and incur embedding usage. Its vectors are lost on restart; conversation files are separate and can survive.
+`SimpleVectorStore` construction does not load documents. With ingestion enabled, the runner parses, token-splits, enriches, and embeds the corpus once at startup. Expect network/API access and model usage. Its vectors are lost on restart; conversation files are separate and can survive. Disabling ingestion leaves the in-memory store empty.
 
 ## PostgreSQL and Supabase
 
@@ -69,12 +69,14 @@ To populate the corpus deliberately, launch with ingestion enabled:
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--spring.profiles.active=docs --spring.config.additional-location=file:docs/examples/application-pgvector.yml --app.rag.ingestion.enabled=true"
 ```
 
-Wait for `RAG ingestion completed. ... documents added.` and confirm the expected data. Stop that process and return to the ingestion-disabled command for subsequent normal starts. The runner executes on every enabled startup, calls the keyword and embedding models, and does not deduplicate or remove old content. Use a deliberate cleanup/reindex procedure for updates; see [RAG ingestion](rag.md#ingestion-and-storage-behavior).
+Before enabling ingestion, provision [the registry table](sql/rag_document_ingestion.sql) if it does not already exist. Wait for the per-source and final `RAG ingestion completed.` logs and confirm the data. Ingestion may remain enabled on normal starts: matching content hashes and pipeline versions skip parsing and corpus model calls. New/changed files are replaced transactionally. Backfilled `legacy-v1` records migrate once to the default `token-v2` pipeline; no whole-table clearing is needed. Use one ingestion instance at a time; see [RAG ingestion](rag.md#ingestion-and-storage-behavior).
 
 For a basic database check through your SQL client:
 
 ```sql
 SELECT count(*) FROM public.vector_store;
+SELECT source_key, pipeline_version, chunk_count, ingested_at
+FROM public.rag_document_ingestion ORDER BY source_key;
 SELECT extname FROM pg_extension WHERE extname IN ('vector', 'hstore', 'uuid-ossp');
 ```
 
@@ -85,7 +87,8 @@ A nonzero row count does not prove the model matches or the corpus is complete. 
 | Property | Default in code | Notes |
 | --- | --- | --- |
 | `app.vector-store.type` | `simple` if missing | Only `simple` and `pgvector` are implemented |
-| `app.rag.ingestion.enabled` | Disabled unless `true` | Separate enriched startup ingestion; simple factory still loads documents |
+| `app.rag.ingestion.enabled` | Disabled unless `true` | Single startup ingestion path; simple mode needs this to populate its empty store |
+| `app.rag.ingestion.pipeline-version` | `token-v2` | PGVector reprocesses sources with a different registered pipeline; bump when processing/model settings change |
 | `app.rag.query-rewriter.enabled` | `true` | Model rewriting for RAG retrieval |
 | `app.rag.query-rewriter.min-query-length` | `0` | Inclusive Java string length lower bound; blank input is still rejected |
 | `app.rag.query-rewriter.max-query-length` | `4000` | Inclusive upper bound; out-of-range text passes through |
@@ -114,6 +117,6 @@ Run demo main classes from the IDE with the project dependencies on the classpat
 | PostgreSQL extension/table/index permission failure | Check role privileges, installed extensions and search path, and managed-database initialization policy. Schema initialization is always enabled in the current factory. |
 | Vector dimension mismatch or poor results after a model change | Verify both embedding model identity and 1536-dimensional output; plan a corpus reindex instead of mixing models. |
 | Empty pgvector results | Confirm `app.vector-store.type=pgvector`, connection/table, and whether ingestion has ever run against that database. |
-| Duplicate corpus results | Check repeated enabled ingestion and simple mode's independent initial load; there are no stable ingestion IDs/deduplication. |
+| Duplicate corpus results | Verify registry hashes and pipeline versions. Changed sources replace vectors by source key or legacy filename; old duplicates in skipped sources remain until reprocessed. |
 | Chat history disappears after restart | Check the process working directory and conversation persistence configured in `NBAMasterApp`; rewrite cache and simple vectors are independently transient. |
 | `/health` succeeds but chat fails | The endpoint returns a constant; it does not check the model, embeddings, retrieval contents, or subsequent database connectivity. |

@@ -12,6 +12,14 @@ Run from the repository root with JDK 17 and resolved Maven dependencies:
 
 Use `mvn` if the Windows wrapper encounters the issue described in [troubleshooting](configuration.md#troubleshooting), or `./mvnw` on Unix. These five classes do not start a Spring context and use mocked model/store calls or local filesystem operations, so they do not need OpenAI/database credentials. Dependency downloads can still need network access.
 
+The ingestion suite is also isolated from external services:
+
+```powershell
+mvn "-Dtest=NbaAppDocumentLoaderTest,MyTokenTextSplitterTest,PgVectorDocumentIngestionTest,RagDocumentIngestionRunnerTest,RagDocumentIngestionRepositoryTest" test
+```
+
+It covers unchanged-source skipping before parsing/model calls, legacy-pipeline and content changes, stable chunk identities, metadata retention, split-before-enrich ordering, single population of the simple store, and rollback/retry boundaries. Transaction managers and JDBC calls are mocked: this does not establish live PostgreSQL rollback, RLS permissions, or provider connectivity. A deliberate live run must validate those separately.
+
 `NBAMasterAppUnitTest` constructs the production app, which creates/writes filesystem conversation state even with a mocked model. One RAG case uses a random ID while basic/structured cases use fixed IDs; repeated runs may encounter persisted history. The repository-specific tests use `@TempDir` instead.
 
 The most important orchestration assertion is `doChatWithRagSearchesRewrittenQueryAndAnswersOriginalQuestion`: it verifies that similarity search receives the rewrite while the final answer prompt contains the original question and retrieved text. It does not evaluate semantic relevance or live model answer quality.
@@ -23,13 +31,12 @@ The most important orchestration assertion is `doChatWithRagSearchesRewrittenQue
 | Class | Current behavior |
 | --- | --- |
 | `NbaGameMasterApplicationTests` | Loads the full context; startup dependencies apply |
-| `NbaAppDocumentLoaderTest` | Loads the full context, then calls the loader without assertions |
 | `PgVectorVectorStoreConfigTest` | Loads the full context, performs a search, and logs results without assertions; does not itself select pgvector |
 | `NBAMasterAppTest` | Full-context live chat tests, gated by `nba.e2e.enabled=true` and tagged `e2e` |
 
-The loader's test annotation does not isolate Markdown parsing from embeddings or the database: startup happens first. The pgvector test's field name does not prove the selected backend; with a single simple store, `@Resource` can resolve by type. Explicitly choose pgvector for a database-backed run.
+The pgvector test's field name does not prove the selected backend; with a single simple store, `@Resource` can resolve by type. Explicitly choose pgvector for a database-backed run.
 
-For a loader smoke run using the simple example (still performs startup embeddings):
+The following loader command runs isolated local parsing tests; the supplied Spring properties are not used because this test does not start a Spring context:
 
 ```powershell
 .\mvnw.cmd "-Dtest=NbaAppDocumentLoaderTest" "-Dspring.profiles.active=docs" "-Dspring.config.additional-location=file:docs/examples/application-simple.yml" test
@@ -51,11 +58,11 @@ The `e2e` tag is descriptive; the system-property condition is the actual opt-in
 
 ## Coverage limits
 
-- The loader test does not assert corpus presence, filenames, excluded blocks, segmentation, or error behavior.
+- The loader tests cover local parsing and failure handling, not retrieval relevance.
 - The pgvector test does not assert backend selection or result relevance, and its example inserts are commented out.
 - The live memory test performs two calls without checking that the second answer remembers the user's team.
 - The logger's streaming-related test checks private logging helpers; it does not exercise the complete streaming chain.
-- There are no dedicated ingestion-runner or keyword-enricher tests, concurrency tests for memory files, or HTTP controller tests.
+- Keyword generation quality, concurrent ingestion, concurrent memory-file access, and HTTP controllers have no dedicated tests.
 - Mocked trade conversion tests verify field mapping, not factual correctness or guaranteed provider-native structured output.
 
 These are existing gaps, not claims that these scenarios were validated by the documentation work.
