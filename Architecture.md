@@ -82,7 +82,8 @@ All paths below are relative to `src/main/java/com/peter/nbagamemaster/`.
 | `rag/NbaAppVectoreStoreConfig.java` | Default/simple store factory; builds an empty store. `Vectore` is the current filename/class spelling |
 | `rag/PgVectorVectorStoreConfig.java` | Manual JDBC pgvector factory; 1536 dimensions, cosine distance, HNSW index, `public.vector_store`, schema initialization, batch limit 10000 |
 | `rag/RagDocumentIngestionRunner.java` | Conditional startup ingestion: dispatch persistent ingestion or populate the simple store once |
-| `rag/MyTokenTextSplitter.java` | Default and customized token splitting; ingestion uses the 200-token target configuration |
+| `rag/MyTokenTextSplitter.java` | Spring AI default splitting and customized overlap splitting; ingestion uses the customized path |
+| `rag/OverlappingTokenTextSplitter.java` | Unicode-safe sliding token windows; 200-token budget including configurable overlap, default 40 tokens |
 | `rag/RagDocumentIngestionRepository.java` | JDBC access to the five-column successful-ingestion registry |
 | `rag/PgVectorDocumentIngestion.java` | Skip matching registrations; split/enrich changed sources; assign stable chunk IDs; transactionally replace vectors and registry |
 | `rag/MyKeywordEnricher.java` | Uses the injected chat model and Spring AI `KeywordMetadataEnricher` to request five keywords per document |
@@ -113,7 +114,7 @@ All paths below are relative to `src/test/java/com/peter/nbagamemaster/`.
 | `chatMemory/FileBasedChatMemoryRepositoryTest.java` | Temporary-directory persistence across repository instances and conversation deletion |
 | `rag/QueryRewriterTest.java` | Mocked rewrite, prompt preservation, caching/LRU, fallback/retry, validation, and bounded session storage tests |
 | `rag/NbaAppDocumentLoaderTest.java` | Isolated source discovery, SHA-256, snapshots, parser metadata/segmentation, and read-failure tests |
-| `rag/MyTokenTextSplitterTest.java` | Real tokenizer coverage for chunk size, content preservation, metadata, and empty/short inputs |
+| `rag/MyTokenTextSplitterTest.java` | Real tokenizer coverage for overlap, zero/high overlap, Unicode, source coverage, metadata, token budgets, limits, and the bundled corpus |
 | `rag/PgVectorDocumentIngestionTest.java` | Mocked skip/reindex, stable IDs, transaction boundaries, rollback, and retry tests |
 | `rag/RagDocumentIngestionRepositoryTest.java` | JDBC row mapping and five-column success-upsert contract |
 | `rag/RagDocumentIngestionRunnerTest.java` | Simple split/enrich/store order, empty corpus, and persistent dispatch without duplicate writes |

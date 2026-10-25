@@ -18,6 +18,8 @@ app:
   vector-store:
     type: pgvector
   rag:
+    text-splitter:
+      chunk-overlap: 40
     ingestion:
       enabled: false
-      pipeline-version: token-v2
+      pipeline-version: token-v3

@@ -40,7 +40,7 @@ public class PgVectorDocumentIngestion {
             MyKeywordEnricher keywordEnricher,
             RagDocumentIngestionRepository repository,
             PlatformTransactionManager transactionManager,
-            @Value("${app.rag.ingestion.pipeline-version:token-v2}") String pipelineVersion
+            @Value("${app.rag.ingestion.pipeline-version:token-v3}") String pipelineVersion
     ) {
         Assert.hasText(pipelineVersion, "pipelineVersion cannot be blank");
         this.vectorStore = vectorStore;

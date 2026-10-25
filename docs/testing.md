@@ -18,7 +18,7 @@ The ingestion suite is also isolated from external services:
 mvn "-Dtest=NbaAppDocumentLoaderTest,MyTokenTextSplitterTest,PgVectorDocumentIngestionTest,RagDocumentIngestionRunnerTest,RagDocumentIngestionRepositoryTest" test
 ```
 
-It covers unchanged-source skipping before parsing/model calls, legacy-pipeline and content changes, stable chunk identities, metadata retention, split-before-enrich ordering, single population of the simple store, and rollback/retry boundaries. Transaction managers and JDBC calls are mocked: this does not establish live PostgreSQL rollback, RLS permissions, or provider connectivity. A deliberate live run must validate those separately.
+It covers unchanged-source skipping before parsing/model calls, pipeline/content changes (including the overlap migration), stable chunk identities, metadata retention, split-before-enrich ordering, single population of the simple store, and rollback/retry boundaries. Splitter tests use the real tokenizer to verify shared context, zero/high overlap, Unicode boundaries, source coverage, per-document isolation, token limits, and the bundled corpus. Transaction managers and JDBC calls are mocked: this does not establish live PostgreSQL rollback, RLS permissions, or provider connectivity. A deliberate live run must validate those separately.
 
 `NBAMasterAppUnitTest` constructs the production app, which creates/writes filesystem conversation state even with a mocked model. One RAG case uses a random ID while basic/structured cases use fixed IDs; repeated runs may encounter persisted history. The repository-specific tests use `@TempDir` instead.
 

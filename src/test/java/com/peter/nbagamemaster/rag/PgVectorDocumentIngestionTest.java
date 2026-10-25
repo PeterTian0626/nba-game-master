@@ -113,6 +113,19 @@ class PgVectorDocumentIngestionTest {
     }
 
     @Test
+    void reprocessesThePreviousPipelineWhenOverlapIsIntroduced() {
+        when(repository.findAll()).thenReturn(Map.of(source.sourceKey(),
+                new IngestionRecord(source.sourceKey(), source.contentHash(), "token-v2")));
+        PgVectorDocumentIngestion overlappingIngestion = new PgVectorDocumentIngestion(
+                vectorStore, loader, splitter, enricher, repository, transactionManager, "token-v3");
+
+        overlappingIngestion.ingest(List.of(source));
+
+        verify(enricher).enrich(chunks);
+        verify(repository).recordSuccess(source.sourceKey(), source.contentHash(), "token-v3", 1);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void assignsStableChunkIdsAndRetainsKeywordsAndSourceMetadata() {
         List<Document> multipleChunks = List.of(enriched.get(0), enriched.get(0));

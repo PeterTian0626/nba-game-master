@@ -1,7 +1,9 @@
 package com.peter.nbagamemaster.rag;
 
 import org.springframework.ai.document.Document;
+import org.springframework.ai.transformer.splitter.TextSplitter;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -10,13 +12,11 @@ import java.util.List;
 public class MyTokenTextSplitter {
 
     private final TokenTextSplitter defaultSplitter = new TokenTextSplitter();
-    private final TokenTextSplitter customizedSplitter = TokenTextSplitter.builder()
-            .withChunkSize(200)
-            .withMinChunkSizeChars(100)
-            .withMinChunkLengthToEmbed(10)
-            .withMaxNumChunks(5000)
-            .withKeepSeparator(true)
-            .build();
+    private final TextSplitter customizedSplitter;
+
+    public MyTokenTextSplitter(@Value("${app.rag.text-splitter.chunk-overlap:40}") int chunkOverlap) {
+        this.customizedSplitter = new OverlappingTokenTextSplitter(chunkOverlap);
+    }
 
     public List<Document> splitDocuments(List<Document> documents) {
         return defaultSplitter.apply(documents);

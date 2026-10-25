@@ -69,7 +69,7 @@ To populate the corpus deliberately, launch with ingestion enabled:
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--spring.profiles.active=docs --spring.config.additional-location=file:docs/examples/application-pgvector.yml --app.rag.ingestion.enabled=true"
 ```
 
-Before enabling ingestion, provision [the registry table](sql/rag_document_ingestion.sql) if it does not already exist. Wait for the per-source and final `RAG ingestion completed.` logs and confirm the data. Ingestion may remain enabled on normal starts: matching content hashes and pipeline versions skip parsing and corpus model calls. New/changed files are replaced transactionally. Backfilled `legacy-v1` records migrate once to the default `token-v2` pipeline; no whole-table clearing is needed. Use one ingestion instance at a time; see [RAG ingestion](rag.md#ingestion-and-storage-behavior).
+Before enabling ingestion, provision [the registry table](sql/rag_document_ingestion.sql) if it does not already exist. Wait for the per-source and final `RAG ingestion completed.` logs and confirm the data. Ingestion may remain enabled on normal starts: matching content hashes and pipeline versions skip parsing and corpus model calls. New/changed files are replaced transactionally. Existing `legacy-v1` and `token-v2` records migrate once to the default `token-v3` overlapping pipeline; no whole-table clearing is needed. Update any external configuration that pins an older pipeline version. Use one ingestion instance at a time; see [RAG ingestion](rag.md#ingestion-and-storage-behavior).
 
 For a basic database check through your SQL client:
 
@@ -88,7 +88,8 @@ A nonzero row count does not prove the model matches or the corpus is complete. 
 | --- | --- | --- |
 | `app.vector-store.type` | `simple` if missing | Only `simple` and `pgvector` are implemented |
 | `app.rag.ingestion.enabled` | Disabled unless `true` | Single startup ingestion path; simple mode needs this to populate its empty store |
-| `app.rag.ingestion.pipeline-version` | `token-v2` | PGVector reprocesses sources with a different registered pipeline; bump when processing/model settings change |
+| `app.rag.ingestion.pipeline-version` | `token-v3` | PGVector reprocesses sources with a different registered pipeline; bump when processing/model settings change, including overlap |
+| `app.rag.text-splitter.chunk-overlap` | `40` | Shared source tokens between adjacent customized chunks; 0 disables overlap; must be less than the 200-token chunk budget |
 | `app.rag.query-rewriter.enabled` | `true` | Model rewriting for RAG retrieval |
 | `app.rag.query-rewriter.min-query-length` | `0` | Inclusive Java string length lower bound; blank input is still rejected |
 | `app.rag.query-rewriter.max-query-length` | `4000` | Inclusive upper bound; out-of-range text passes through |
