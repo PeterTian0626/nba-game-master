@@ -90,13 +90,14 @@ A nonzero row count does not prove the model matches or the corpus is complete. 
 | `app.rag.ingestion.enabled` | Disabled unless `true` | Single startup ingestion path; simple mode needs this to populate its empty store |
 | `app.rag.ingestion.pipeline-version` | `token-v3` | PGVector reprocesses sources with a different registered pipeline; bump when processing/model settings change, including overlap |
 | `app.rag.text-splitter.chunk-overlap` | `40` | Shared source tokens between adjacent customized chunks; 0 disables overlap; must be less than the 200-token chunk budget |
+| `app.rag.retrieval.similarity-threshold` | `0.5` | Minimum retrieval similarity, inclusive from 0 to 1; filters supporting references, not NBA scope or answerability; tune with representative queries |
 | `app.rag.query-rewriter.enabled` | `true` | Model rewriting for RAG retrieval |
 | `app.rag.query-rewriter.min-query-length` | `0` | Inclusive Java string length lower bound; blank input is still rejected |
 | `app.rag.query-rewriter.max-query-length` | `4000` | Inclusive upper bound; out-of-range text passes through |
 | `app.rag.query-rewriter.cache-capacity` | `1000` | Successful rewrite LRU capacity; zero disables retention |
 | `app.rag.query-rewriter.session-capacity` | `1000` | Latest effective query per session; zero disables retention |
 
-No configurable application property currently controls the memory directory/window, keyword count, retriever top-K/threshold, or pgvector builder values. Change the owning Java code to change those behaviors. The default HTTP port is Spring Boot's 8080 unless `server.port` is set.
+No configurable application property currently controls the memory directory/window, keyword count, retriever top-K, or pgvector builder values. Change the owning Java code to change those behaviors. The default HTTP port is Spring Boot's 8080 unless `server.port` is set.
 
 ## Standalone demos
 

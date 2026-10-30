@@ -10,7 +10,7 @@ Run from the repository root with JDK 17 and resolved Maven dependencies:
 .\mvnw.cmd "-Dtest=NBAMasterAppUnitTest,QueryRewriterTest,ReReadingAdvisorTest,MyLoggerAdvisorTest,FileBasedChatMemoryRepositoryTest" test
 ```
 
-Use `mvn` if the Windows wrapper encounters the issue described in [troubleshooting](configuration.md#troubleshooting), or `./mvnw` on Unix. These five classes do not start a Spring context and use mocked model/store calls or local filesystem operations, so they do not need OpenAI/database credentials. Dependency downloads can still need network access.
+Use `mvn` if the Windows wrapper encounters the issue described in [troubleshooting](configuration.md#troubleshooting), or `./mvnw` on Unix. These five classes do not start the full application context and use mocked model/store calls or local filesystem operations, so they do not need OpenAI/database credentials. `NBAMasterAppUnitTest` uses a lightweight Spring context to check retrieval-property binding. Dependency downloads can still need network access.
 
 The ingestion suite is also isolated from external services:
 
@@ -20,9 +20,11 @@ mvn "-Dtest=NbaAppDocumentLoaderTest,MyTokenTextSplitterTest,PgVectorDocumentIng
 
 It covers unchanged-source skipping before parsing/model calls, pipeline/content changes (including the overlap migration), stable chunk identities, metadata retention, split-before-enrich ordering, single population of the simple store, and rollback/retry boundaries. Splitter tests use the real tokenizer to verify shared context, zero/high overlap, Unicode boundaries, source coverage, per-document isolation, token limits, and the bundled corpus. Transaction managers and JDBC calls are mocked: this does not establish live PostgreSQL rollback, RLS permissions, or provider connectivity. A deliberate live run must validate those separately.
 
-`NBAMasterAppUnitTest` constructs the production app, which creates/writes filesystem conversation state even with a mocked model. One RAG case uses a random ID while basic/structured cases use fixed IDs; repeated runs may encounter persisted history. The repository-specific tests use `@TempDir` instead.
+`NBAMasterAppUnitTest` constructs the production app, which creates/writes filesystem conversation state even with a mocked model. RAG cases use random IDs while basic/structured cases use fixed IDs; repeated runs may encounter persisted history. The repository-specific tests use `@TempDir` instead.
 
 The most important orchestration assertion is `doChatWithRagSearchesRewrittenQueryAndAnswersOriginalQuestion`: it verifies that similarity search receives the rewrite while the final answer prompt contains the original question and retrieved text. It does not evaluate semantic relevance or live model answer quality.
+
+RAG policy tests check that empty retrieval preserves unrelated, current-data, and conceptual NBA questions, and that retrieved material is supplemental rather than the exclusive evidence source. They inspect shared NBA-scope and current-fact verification instructions in the system prompt, including basic and structured chat, and preserve retrieval-error propagation and cutoff configuration coverage. They use a mocked answer model; they do not establish live topic detection, factual freshness, tool execution, model compliance, or calibration of the similarity cutoff. Current-data tools are not implemented by this change.
 
 ## Spring context and live tests
 

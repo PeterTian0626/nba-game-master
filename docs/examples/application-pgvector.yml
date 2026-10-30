@@ -22,6 +22,8 @@ app:
   vector-store:
     type: pgvector
   rag:
+    retrieval:
+      similarity-threshold: 0.5
     text-splitter:
       chunk-overlap: 40
     ingestion:

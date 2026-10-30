@@ -79,19 +79,21 @@ sequenceDiagram
     Rewrite-->>App: Effective search text
     App->>Store: similaritySearch(effective search text)
     Note over Store,Model: Store embeds the search text through the embedding model
-    Store-->>App: Relevant documents
-    App->>Model: Original question augmented with context and answer advisors
+    Store-->>App: Supporting documents (possibly empty)
+    App->>Model: Original question, optional references, and answer advisors
     Model-->>App: Answer
     App-->>Caller: String answer
 ```
 
-The rewritten text replaces only the query used by `VectorStoreDocumentRetriever`. `RetrievalAugmentationAdvisor` augments the original answer question with retrieved documents. Retrieval uses a `SyncTaskExecutor` rather than allocating a thread pool per request. Defaults for the pinned Spring AI version are top four results, similarity threshold 0.0, and no metadata filter; these are not exposed as application properties.
+The rewritten text replaces only the query used by `VectorStoreDocumentRetriever`. `RetrievalAugmentationAdvisor` augments the original answer question with retrieved documents. Retrieval uses a `SyncTaskExecutor` rather than allocating a thread pool per request. It requests the top four results with no metadata filter and uses `app.rag.retrieval.similarity-threshold` (default 0.5) to reject weak matches. The cutoff is a heuristic that needs calibration with the embedding model and corpus.
 
 Query rewriting uses the same configured chat model through a separate client with no answer memory/rereading advisors. Its caches are in memory. It preserves names, dates, constraints, and language by prompt instruction; that instruction is not a factual correctness guarantee. It does not resolve ambiguous follow-up references from conversation history. A rewrite failure falls back to the original input; an embedding, store, or final answer error has no equivalent application fallback.
 
 Inspect the latest effective search text in Java with `queryRewriter.getLastRewrittenQuery(sessionId)`. This includes original text when rewriting was skipped or failed. It is diagnostic session state, not the conversation transcript. See [query rewriting](docs/query-rewriting.md) for cache and validation behavior.
 
-With no retrieved documents, Spring AI's default contextual augmenter instructs the answer model that the query is outside the knowledge base and it cannot answer; this application does not enable empty-context answering. Model compliance is not guaranteed. There is no explicit source-citation response contract or freshness check.
+NBA scope and evidence policy live in the shared system prompt for basic, structured, and RAG chat. Unrelated requests should be politely declined in the requested response format. Retrieved frameworks and historical examples support basketball reasoning rather than define the assistant's entire knowledge. Current rosters, injuries, scores, and recent transactions require verification through suitable tools when available; without current evidence, the model should state the limitation and qualify any assumptions. The application has no such tools wired yet, and the prompt forbids claiming tool use or verification that did not occur.
+
+The customized contextual augmenter treats matching documents as optional reference material. Empty context is allowed and preserves the original question instead of replacing it with a refusal. The similarity cutoff filters references; it does not determine NBA scope or answerability. Retrieval is still attempted on every `doChatWithRag` call. These are prompt instructions, so factual correctness and model compliance are not guaranteed. The return type remains `String`; there is no status/JSON contract, explicit source-citation response contract, or automated freshness check. Service failures still propagate separately.
 
 ## Ingestion workflow and model usage
 
