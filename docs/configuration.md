@@ -42,14 +42,16 @@ Use `./mvnw` on Unix or an installed `mvn` as a wrapper alternative. The example
 
 - `app.vector-store.type=simple`.
 - `app.rag.ingestion.enabled=true` to populate the in-memory store through the single startup ingestion path.
-- `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`, because the JDBC starter otherwise attempts to configure a data source even in simple mode.
+- `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`, because the JPA starter includes JDBC auto-configuration. With no data source, JPA auto-configuration also backs off; persistent registry repositories are enabled only for pgvector.
 - Explicit OpenAI chat and embedding models and a required environment key.
 
 `SimpleVectorStore` construction does not load documents. With ingestion enabled, the runner parses, token-splits, enriches, and embeds the corpus once at startup. Expect network/API access and model usage. Its vectors are lost on restart; conversation files are separate and can survive. Disabling ingestion leaves the in-memory store empty.
 
 ## PostgreSQL and Supabase
 
-The application's database integration is standard PostgreSQL JDBC plus Spring AI `PgVectorStore`. Supabase can supply the hosted PostgreSQL database for this setup. There is no Supabase Java SDK, REST client, Auth, Storage, Edge Function, or Supabase-specific vector RPC in the code.
+The registry uses Spring Data JPA/Hibernate, while Spring AI `PgVectorStore` manages vector operations through PostgreSQL JDBC. Both use the same data source and JPA transaction manager. Supabase can supply the hosted PostgreSQL database for this setup. There is no Supabase Java SDK, REST client, Auth, Storage, Edge Function, or Supabase-specific vector RPC in the code.
+
+The pgvector example sets `spring.jpa.hibernate.ddl-auto=none` and `spring.jpa.open-in-view=false`. Hibernate does not create or change the existing registry table through this configuration. Keep schema/RLS setup separate; converting registry access to ORM requires no data migration or pipeline-version bump. Spring AI still manages its configured vector-store schema initialization independently.
 
 1. Provision an appropriate PostgreSQL database with pgvector support. For Supabase, use its [database connection guidance](https://supabase.com/docs/guides/database/connecting-to-postgres) to choose an endpoint suitable for your network and server process, and its [pgvector extension guide](https://supabase.com/docs/guides/database/extensions/pgvector) for extension setup.
 2. Set `NBA_DB_URL` to a PostgreSQL JDBC URL, `NBA_DB_USERNAME` to the database role, and `NBA_DB_PASSWORD` to its database password. The URL must start with `jdbc:postgresql://`, not a plain `postgresql://` URI. Follow your provider's TLS/certificate requirements; include the appropriate `sslmode` and certificate settings for that connection. Keep credentials outside tracked files.

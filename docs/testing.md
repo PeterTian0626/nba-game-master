@@ -15,10 +15,12 @@ Use `mvn` if the Windows wrapper encounters the issue described in [troubleshoot
 The ingestion suite is also isolated from external services:
 
 ```powershell
-mvn "-Dtest=NbaAppDocumentLoaderTest,MyTokenTextSplitterTest,PgVectorDocumentIngestionTest,RagDocumentIngestionRunnerTest,RagDocumentIngestionRepositoryTest" test
+mvn "-Dtest=NbaAppDocumentLoaderTest,MyTokenTextSplitterTest,PgVectorDocumentIngestionTest,RagDocumentIngestionRunnerTest,RagDocumentIngestionRepositoryTest,RagDocumentIngestionJpaConfigurationTest" test
 ```
 
-It covers unchanged-source skipping before parsing/model calls, pipeline/content changes (including the overlap migration), stable chunk identities, metadata retention, split-before-enrich ordering, single population of the simple store, and rollback/retry boundaries. Splitter tests use the real tokenizer to verify shared context, zero/high overlap, Unicode boundaries, source coverage, per-document isolation, token limits, and the bundled corpus. Transaction managers and JDBC calls are mocked: this does not establish live PostgreSQL rollback, RLS permissions, or provider connectivity. A deliberate live run must validate those separately.
+It covers unchanged-source skipping before parsing/model calls, pipeline/content changes (including the overlap migration), stable chunk identities, metadata retention, split-before-enrich ordering, single population of the simple store, and rollback/retry boundaries. Splitter tests use the real tokenizer to verify shared context, zero/high overlap, Unicode boundaries, source coverage, per-document isolation, token limits, and the bundled corpus.
+
+The ingestion orchestration tests mock transaction managers and vector stores. `RagDocumentIngestionRepositoryTest` instead starts a JPA slice with an explicitly configured in-memory H2 data source and real Hibernate/JPA repositories. It verifies legacy-row reads, one registration per source, and shared JPA/JDBC commit and rollback, including preservation of old data after failed replacement. JDBC writes use a local fixture table to represent the vector store; PGVector and embedding calls are not started. Configuration tests verify that simple mode excludes persistent repositories and can start without database auto-configuration. These checks do not establish live PostgreSQL/pgvector behavior, RLS permissions, or provider connectivity.
 
 `NBAMasterAppUnitTest` constructs the production app, which creates/writes filesystem conversation state even with a mocked model. RAG cases use random IDs while basic/structured cases use fixed IDs; repeated runs may encounter persisted history. The repository-specific tests use `@TempDir` instead.
 

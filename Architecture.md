@@ -37,7 +37,7 @@ flowchart TD
 ## Startup and dependency wiring
 
 1. `NbaGameMasterApplication` starts Spring Boot and scans the application package.
-2. Spring AI auto-configures OpenAI chat/embedding models from `spring.ai.openai.*`. Spring Boot's JDBC starter also triggers data source auto-configuration unless explicitly excluded.
+2. Spring AI auto-configures OpenAI chat/embedding models from `spring.ai.openai.*`. Spring Boot's JPA starter includes JDBC data source auto-configuration unless explicitly excluded. With a data source, Hibernate supplies the entity manager and JPA transaction manager; registry repositories are conditional on pgvector mode.
 3. Exactly one vector-store factory should match `app.vector-store.type`:
    - Missing or `simple`: bean `vectorStore`, initially empty; ingestion populates it if enabled.
    - `pgvector`: bean `pgVectorVectorStore`, which initializes the database schema through Spring's bean lifecycle; it does not load documents by itself.
@@ -84,7 +84,9 @@ All paths below are relative to `src/main/java/com/peter/nbagamemaster/`.
 | `rag/RagDocumentIngestionRunner.java` | Conditional startup ingestion: dispatch persistent ingestion or populate the simple store once |
 | `rag/MyTokenTextSplitter.java` | Spring AI default splitting and customized overlap splitting; ingestion uses the customized path |
 | `rag/OverlappingTokenTextSplitter.java` | Unicode-safe sliding token windows; 200-token budget including configurable overlap, default 40 tokens |
-| `rag/RagDocumentIngestionRepository.java` | JDBC access to the five-column successful-ingestion registry |
+| `rag/RagDocumentIngestionEntity.java` | JPA entity mapping the existing five registry columns and application UTC success timestamp |
+| `rag/RagDocumentIngestionJpaRepository.java` | Generated Spring Data JPA CRUD repository, enabled in pgvector mode |
+| `rag/RagDocumentIngestionRepository.java` | Registry adapter exposing source-key lookup and save/flush success operations without handwritten SQL |
 | `rag/PgVectorDocumentIngestion.java` | Skip matching registrations; split/enrich changed sources; assign stable chunk IDs; transactionally replace vectors and registry |
 | `rag/MyKeywordEnricher.java` | Uses the injected chat model and Spring AI `KeywordMetadataEnricher` to request five keywords per document |
 | `rag/QueryRewriter.java` | NBA search-query transformer; length gates, bounded synchronized LRU maps for successful rewrites/latest session searches, graceful model-error fallback |
@@ -94,7 +96,7 @@ All paths below are relative to `src/main/java/com/peter/nbagamemaster/`.
 | `demo/invoke/SpringAiInvoke2.java` | Commented-out `CommandLineRunner` example; no active component/class |
 | `demo/invoke/LangChain4jInvoke.java` | Entirely commented-out alternative integration; LangChain4j dependency is also commented out in the POM |
 
-`spring-ai-advisors-vector-store` is declared, but the implemented RAG path uses `RetrievalAugmentationAdvisor` from `spring-ai-rag`. The pgvector starter is commented out; the active manual factory uses `spring-ai-pgvector-store`, JDBC, and the PostgreSQL driver. Changing `spring.ai.vectorstore.pgvector.*` does not reconfigure this factory's hard-coded builder values.
+`spring-ai-advisors-vector-store` is declared, but the implemented RAG path uses `RetrievalAugmentationAdvisor` from `spring-ai-rag`. The pgvector starter is commented out; the active manual factory uses `spring-ai-pgvector-store`, JDBC, and the PostgreSQL driver. Spring Data JPA provides ORM access to the ingestion registry, with its transaction manager coordinating both ORM and JDBC writes. H2 is a test-only dependency. Changing `spring.ai.vectorstore.pgvector.*` does not reconfigure the manual factory's hard-coded builder values.
 
 ## Knowledge corpus
 
@@ -116,7 +118,8 @@ All paths below are relative to `src/test/java/com/peter/nbagamemaster/`.
 | `rag/NbaAppDocumentLoaderTest.java` | Isolated source discovery, SHA-256, snapshots, parser metadata/segmentation, and read-failure tests |
 | `rag/MyTokenTextSplitterTest.java` | Real tokenizer coverage for overlap, zero/high overlap, Unicode, source coverage, metadata, token budgets, limits, and the bundled corpus |
 | `rag/PgVectorDocumentIngestionTest.java` | Mocked skip/reindex, stable IDs, transaction boundaries, rollback, and retry tests |
-| `rag/RagDocumentIngestionRepositoryTest.java` | JDBC row mapping and five-column success-upsert contract |
+| `rag/RagDocumentIngestionRepositoryTest.java` | Local H2/JPA integration: existing row mapping, insert/update, shared JPA/JDBC commit and rollback |
+| `rag/RagDocumentIngestionJpaConfigurationTest.java` | Conditional registry registration and simple mode startup without a database |
 | `rag/RagDocumentIngestionRunnerTest.java` | Simple split/enrich/store order, empty corpus, and persistent dispatch without duplicate writes |
 | `rag/PgVectorVectorStoreConfigTest.java` | Full-context similarity-search smoke test (`topK=2`); logs results with no assertions and does not force pgvector selection |
 
