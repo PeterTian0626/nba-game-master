@@ -1,4 +1,8 @@
 spring:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
